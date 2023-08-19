@@ -152,7 +152,7 @@ DEFAULT_LOCALE = 'en'
 
 def main():
     st.set_page_config(
-        page_title="Spatial-lit Worldle",
+        page_title="Alphabetical Worldle",
         page_icon="🌍",
         initial_sidebar_state="collapsed",
         
@@ -200,10 +200,7 @@ def main():
         # target_gdf.explore(m=m)
         folium_static(m, width=725)
         st.button("Play Again!", on_click=on_reset)
-        st.subheader("All Location Data")
-        # safe_cols = [col for col in all_locations.columns if all_locations[col].dtype != 'geometry']
-        # df = all_locations[safe_cols]
-        # st.dataframe(df)
+
         st.stop()
 
     with st.expander("What is This?"):
@@ -232,44 +229,6 @@ A geography guessing game with the following rules:
     - The `proximity` percentage is based on the maximum `distance`
 """
         )
-        # st.write("""Built with ❤️ by [Gerard Bentley](https://tech.gerardbentley.com/). Powered by Python 🐍 + Streamlit 🎈""")
-    # with st.expander("Hints! (Optional)", True):
-    #     show_guesses_on_map = st.checkbox("Reveal your guesses on a map (will load an additional map below the mystery country)", False)
-    #     show_on_map = st.checkbox("Reveal the mystery country on a map (will load a map centered on the mystery country", False)
-
-
-    # if not already_won and not show_on_map:
-    #     fig, ax = plt.subplots(figsize=(3, 3))
-    #     country = all_locations.loc[[random_location["fid"]]]
-    #     country.plot(ax=ax, figsize=(0.5, 1), legend=True)
-    #     ax.set_axis_off()
-    #     st.pyplot(fig)
-
-    # guess_fid = None
-    # if show_guesses_on_map or show_on_map:
-    #     targets = list(guesses)
-    #     target_centroid = all_locations.loc[[random_location["fid"]], "centroid"]
-    #     lat, lon = 0, 0
-
-    #     if show_on_map:
-    #         lat, lon = target_lat, target_lon
-    #         targets.append(random_location["fid"])
-
-    #     m = folium.Map(
-    #         location=[lat, lon],
-    #         zoom_start=3,
-    #         tiles="Stamen Watercolor",
-    #         attr="Stamen",
-    #     )
-    #     if len(targets):
-    #         target_gdf = all_locations.loc[targets, "geom"]
-    #         target_gdf.explore(m=m)
-    #         for target in target_gdf:
-    #             target_lat, target_lon = target.centroid.y, target.centroid.x
-    #             folium.Marker(
-    #                 [target_lat, target_lon], tooltip=f"{target_lat}, {target_lon}"
-    #             ).add_to(m)
-    #     folium_static(m, width=725)
 
     for display_guess in guesses:
         # display_guess_country = all_locations.loc[display_guess]
