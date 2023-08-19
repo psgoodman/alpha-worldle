@@ -10,6 +10,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from math import radians, cos, sin, asin, sqrt, atan2, degrees
 from PIL import Image
+import csv
+import random
 
 
 log = logging.getLogger("streamlit")
@@ -91,43 +93,39 @@ def get_connection() -> sqlite3.Connection:
         uri=True,
     )
     conn.row_factory = sqlite3.Row
-    conn.enable_load_extension(True)
-    conn.load_extension("mod_spatialite")
+    # conn.enable_load_extension(True)
+    # conn.load_extension("mod_spatialite")
     return conn
 
 
-def get_random_location() -> sqlite3.Row:
-    conn = get_connection()
-    query = "SELECT * FROM country WHERE type != 'Dependency' and type != 'Lease' ORDER BY RANDOM() LIMIT 1;"
-    cursor = conn.execute(query)
-    result = cursor.fetchone()
-    return result
+def get_random_location() -> dict:
+    with open('countries.csv', newline='') as csvfile:
+        reader = csv.DictReader(csvfile)
+        chosen_row = random.choice(list(reader))
+
+    return chosen_row
 
 
 @st.experimental_singleton
-def get_all_locations() -> gpd.GeoDataFrame:
-    conn = get_connection()
-    query = f"SELECT *, Hex(ST_AsBinary(geometry)) as 'geom' FROM country WHERE type != 'Dependency' and type != 'Lease' ORDER BY name_en;"
-    result = gpd.GeoDataFrame.from_postgis(query, conn, index_col="fid")
-    result["area"] = result.area
-    result["centroid"] = result.centroid
-    result["lat"] = result.centroid.y
-    result["lon"] = result.centroid.x
+def get_all_locations() -> list:
+    result = []
+
+    with open('countries.csv', newline='') as csvfile:
+        reader = csv.DictReader(csvfile)
+        for row in reader:
+            result.append(row)
+
     return result
 
 
-def get_distances(fid: int) -> gpd.GeoDataFrame:
-    gdf = get_all_locations()
-    result: gpd.GeoDataFrame = gdf.copy().set_crs("EPSG:4326")
-    target_centroid = result.loc[fid, "centroid"]
-    target_lat, target_lon = target_centroid.y, target_centroid.x
-    result["distance"] = result.apply(
-        helper_haversine, axis=1, args=(target_lat, target_lon)
-    )
-    result["direction"] = result.apply(
-        helper_bearing, axis=1, args=(target_lat, target_lon)
-    )
-    return result
+def get_distances(target: dict) -> list:
+    locations = get_all_locations()
+
+    for loc in locations:
+        loc['distance'] = haversine(float(target["latitude"]), float(target["longitude"]), float(loc["latitude"]), float(loc["longitude"]))
+        loc['direction'] = get_flat_earth_bearing(float(loc["latitude"]), float(loc["longitude"]), float(target["latitude"]), float(target["longitude"]))
+
+    return locations
 
 
 @st.experimental_memo
@@ -177,7 +175,7 @@ def main():
     locale_col = LOCALES.get(selected_locale, "en")
     if RANDOM_LOCATION not in st.session_state:
         random_location = get_random_location()
-        all_locations = get_distances(random_location["fid"])
+        all_locations = get_distances(random_location)
         guesses = []
         st.session_state[RANDOM_LOCATION] = random_location
         st.session_state[ALL_LOCATIONS] = all_locations
@@ -187,25 +185,25 @@ def main():
         all_locations = st.session_state.get(ALL_LOCATIONS)
         guesses = st.session_state.get(GUESSES)
 
-    already_won = random_location["fid"] in guesses
-    target_centroid = all_locations.loc[[random_location["fid"]], "centroid"]
-    target_lat, target_lon = all_locations.loc[random_location["fid"], ["lat", "lon"]]
+    already_won = random_location["name"] in map(lambda loc: loc['name'], guesses)
+    target_lat, target_lon = [random_location["latitude"], random_location["longitude"]]
+
     if already_won:
         st.balloons()
         st.success("You Guessed Correctly! 🥳")
-        st.header(all_locations.loc[random_location["fid"], locale_col])
-        target_gdf = all_locations.loc[guesses, "geom"]
+        st.header(random_location["name"])
+        # target_gdf = all_locations.loc[guesses, "geom"]
         m = folium.Map(
-            location=[target_lat, target_centroid.x],
+            location=[target_lat, target_lon],
             zoom_start=3,
         )
-        target_gdf.explore(m=m)
+        # target_gdf.explore(m=m)
         folium_static(m, width=725)
         st.button("Play Again!", on_click=on_reset)
         st.subheader("All Location Data")
-        safe_cols = [col for col in all_locations.columns if all_locations[col].dtype != 'geometry']
-        df = all_locations[safe_cols]
-        st.dataframe(df)
+        # safe_cols = [col for col in all_locations.columns if all_locations[col].dtype != 'geometry']
+        # df = all_locations[safe_cols]
+        # st.dataframe(df)
         st.stop()
 
     with st.expander("What is This?"):
@@ -234,53 +232,58 @@ A geography guessing game with the following rules:
     - The `proximity` percentage is based on the maximum `distance`
 """
         )
-        st.write("""Built with ❤️ by [Gerard Bentley](https://tech.gerardbentley.com/). Powered by Python 🐍 + Streamlit 🎈""")
-    with st.expander("Hints! (Optional)", True):
-        show_guesses_on_map = st.checkbox("Reveal your guesses on a map (will load an additional map below the mystery country)", False)
-        show_on_map = st.checkbox("Reveal the mystery country on a map (will load a map centered on the mystery country", False)
+        # st.write("""Built with ❤️ by [Gerard Bentley](https://tech.gerardbentley.com/). Powered by Python 🐍 + Streamlit 🎈""")
+    # with st.expander("Hints! (Optional)", True):
+    #     show_guesses_on_map = st.checkbox("Reveal your guesses on a map (will load an additional map below the mystery country)", False)
+    #     show_on_map = st.checkbox("Reveal the mystery country on a map (will load a map centered on the mystery country", False)
 
 
-    if not already_won and not show_on_map:
-        fig, ax = plt.subplots(figsize=(3, 3))
-        country = all_locations.loc[[random_location["fid"]]]
-        country.plot(ax=ax, figsize=(0.5, 1), legend=True)
-        ax.set_axis_off()
-        st.pyplot(fig)
+    # if not already_won and not show_on_map:
+    #     fig, ax = plt.subplots(figsize=(3, 3))
+    #     country = all_locations.loc[[random_location["fid"]]]
+    #     country.plot(ax=ax, figsize=(0.5, 1), legend=True)
+    #     ax.set_axis_off()
+    #     st.pyplot(fig)
 
-    guess_fid = None
-    if show_guesses_on_map or show_on_map:
-        targets = list(guesses)
-        target_centroid = all_locations.loc[[random_location["fid"]], "centroid"]
-        lat, lon = 0, 0
+    # guess_fid = None
+    # if show_guesses_on_map or show_on_map:
+    #     targets = list(guesses)
+    #     target_centroid = all_locations.loc[[random_location["fid"]], "centroid"]
+    #     lat, lon = 0, 0
 
-        if show_on_map:
-            lat, lon = target_lat, target_lon
-            targets.append(random_location["fid"])
+    #     if show_on_map:
+    #         lat, lon = target_lat, target_lon
+    #         targets.append(random_location["fid"])
 
-        m = folium.Map(
-            location=[lat, lon],
-            zoom_start=3,
-            tiles="Stamen Watercolor",
-            attr="Stamen",
-        )
-        if len(targets):
-            target_gdf = all_locations.loc[targets, "geom"]
-            target_gdf.explore(m=m)
-            for target in target_gdf:
-                target_lat, target_lon = target.centroid.y, target.centroid.x
-                folium.Marker(
-                    [target_lat, target_lon], tooltip=f"{target_lat}, {target_lon}"
-                ).add_to(m)
-        folium_static(m, width=725)
+    #     m = folium.Map(
+    #         location=[lat, lon],
+    #         zoom_start=3,
+    #         tiles="Stamen Watercolor",
+    #         attr="Stamen",
+    #     )
+    #     if len(targets):
+    #         target_gdf = all_locations.loc[targets, "geom"]
+    #         target_gdf.explore(m=m)
+    #         for target in target_gdf:
+    #             target_lat, target_lon = target.centroid.y, target.centroid.x
+    #             folium.Marker(
+    #                 [target_lat, target_lon], tooltip=f"{target_lat}, {target_lon}"
+    #             ).add_to(m)
+    #     folium_static(m, width=725)
 
     for display_guess in guesses:
-        display_guess_country = all_locations.loc[display_guess]
-        display_guess_name = display_guess_country[locale_col]
-        distance = display_guess_country["distance"]
+        # display_guess_country = all_locations.loc[display_guess]
+        display_guess_name = display_guess['name']
+        distance = display_guess["distance"]
         distance_percentage = (1 - (distance / MAX_DISTANCE)) * 100
-        direction = display_guess_country["direction"]
+        direction = display_guess["direction"]
+
+        alph_direction = 180
+        if display_guess_name > random_location['name']:
+            alph_direction = 0
 
         arrow_image = get_rotated_arrow(direction)
+        alph_arrow_image = get_rotated_arrow(alph_direction)
         if int(distance_percentage) == 100:
             prox_icon = "🥇"
         elif int(distance_percentage) > 50:
@@ -288,7 +291,7 @@ A geography guessing game with the following rules:
         else:
             prox_icon = "🥉"
         st.info(
-            f"🌏 **{display_guess_name}** | 📏 **{distance:.0f}** km away | ![Direction {direction}](data:image/png;base64,{arrow_image}) | {prox_icon} **{distance_percentage:.2f}%**"
+            f"🌏 **{display_guess_name}** | 📏 **{distance:.0f}** km away | ![Direction {direction}](data:image/png;base64,{arrow_image}) | {prox_icon} **{distance_percentage:.2f}%** | Alphabet Direction: ![AlphDirection {alph_direction}](data:image/png;base64,{alph_arrow_image})"
         )
 
     if len(guesses) == 6:
@@ -299,18 +302,22 @@ A geography guessing game with the following rules:
     with st.form("guess", True):
         guess = st.selectbox(
             "Guess the country (Click the drop down then type to filter)",
-            all_locations[locale_col],
+            map(lambda location: location['name'], all_locations),
         )
         has_guessed = st.form_submit_button("Submit Guess!")
 
     st.button("Get new Random Country", on_click=on_reset)
-    guess_fid = all_locations.index[all_locations[locale_col] == guess][0]
+    guess_dict = {}
+    for loc in all_locations:
+        if loc['name'] == guess:
+            guess_dict = loc
+            break
 
-    if not has_guessed or guess_fid in guesses:
+    if not has_guessed or guess_dict in guesses:
         st.warning("Submit a new Guess to continue!")
         st.stop()
 
-    guesses.append(guess_fid)
+    guesses.append(guess_dict)
     st.experimental_rerun()
 
 
