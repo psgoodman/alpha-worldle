@@ -40,7 +40,7 @@ Assumes working python installation and some command line knowledge ([install py
 
 ```sh
 # External users: download Files
-git clone git@github.com:gerardrbentley/streamlit_worldle.git
+git clone git@github.com:psgoodman/alpha-worldle.git
 
 # Go to correct directory
 cd streamlit_worldle
