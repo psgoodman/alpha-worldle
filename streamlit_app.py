@@ -209,20 +209,18 @@ def main():
 ### Streamlit Worldle
 A geography guessing game with the following rules:
 
-- You are given the outline of a mystery Country or Territory 🌏
+- You are trying to guess a randomly chosen mystery Country🌏
 - If you guess the correct Country then you win 🥳
 - If you guess incorrectly 6 times then you lose 😔
 - Each incorrect guess will reveal information that might help you locate the mystery Country:
     - 📏 The `distance` that the center of the guess Country is away from the mystery Country
     - 🧭 The `direction` that points from the guess Country to the mystery Country (on a 2D map)
     - 🥈 The `proximity` percentage of how correct the guess was. A guess on the opposite side of the globe will be `0%` and the correct guess will be `100%`.
+    - The `alphabetical direction`, whether the mystery country's name is earlier or later alphabetically than the one you guessed
 
 ### Data Sources and Caveats
 
-- World Bank: [World Boundaries GeoDatabase](https://datacatalog.worldbank.org/search/dataset/0038272/World-Bank-Official-Boundaries)
-    - Provides Country and Territory shapes, locations, and names
-    - Loaded into SQLite + Spatialite database (see original location guessing [repository on github](https://github.com/gerardrbentley/streamlit-location-guesser))
-    - Some boundaries may not be precise or might include satellite territories in addition to mainland
+- Just pulled [Google's countries.csv](https://developers.google.com/public-data/docs/canonical/countries_csv) and removed everything that isn't an actual country (possible there were some errors in this process).
 - 📏 `distance` is the [Haversine Distance](https://en.wikipedia.org/wiki/Haversine_formula) calculated based on the [centroids](http://wiki.gis.com/wiki/index.php/Centroid) of the Countries calculated using GeoPandas
     - Countries that share a border will **NOT** have 0 km `distance`
     - The maximum `distance` possible is roughly `20000 km` (two points on opposite sides of the globe)
@@ -255,6 +253,7 @@ A geography guessing game with the following rules:
 
     if len(guesses) == 6:
         st.error("You Guessed Incorrectly 6 Times 😔")
+        st.write("The correct answer was: " + random_location['name'])
         st.button("Try Again!", on_click=on_reset)
         st.stop()
 

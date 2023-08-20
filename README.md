@@ -17,14 +17,14 @@ Forked from a version by [gerardrbentley](https://github.com/gerardrbentley)
 
 A geography guessing game with the following rules:
 
-- You are given the outline of a mystery Country🌏
+- You are trying to guess a randomly chosen mystery Country🌏
 - If you guess the correct Country then you win 🥳
 - If you guess incorrectly 6 times then you lose 😔
 - Each incorrect guess will reveal information that might help you locate the mystery Country:
     - 📏 The `distance` that the center of the guess Country is away from the mystery Country
     - 🧭 The `direction` that points from the guess Country to the mystery Country (on a 2D map)
     - 🥈 The `proximity` percentage of how correct the guess was. A guess on the opposite side of the globe will be `0%` and the correct guess will be `100%`.
-    - The `alphabetical direction`, whether the mystery countries name is earlier or later alphabetically than the one you guessed
+    - The `alphabetical direction`, whether the mystery country's name is earlier or later alphabetically than the one you guessed
 
 ### Data Sources and Caveats
 
