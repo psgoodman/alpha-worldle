@@ -2,7 +2,6 @@ import base64
 from io import BytesIO
 import streamlit as st
 import logging
-import sqlite3
 from streamlit_folium import folium_static
 import folium
 import geopandas as gpd
@@ -68,6 +67,13 @@ def get_flat_earth_bearing(lat1: float, lon1: float, lat2: float, lon2: float) -
     """
     relative_lat = lat2 - lat1
     relative_lon = lon2 - lon1
+
+    # Correct for crossing between negative and positive lon
+    if relative_lon > 180:
+        relative_lon = 180 - relative_lon
+    if relative_lon < -180:
+        relative_lon = -180 - relative_lon
+
     angle = atan2(relative_lon, relative_lat)
 
     return degrees(angle)
@@ -80,28 +86,12 @@ def helper_bearing(row: pd.Series, target_lat: float, target_lon: float) -> floa
 
 MAX_DISTANCE = haversine(0, 0, 180, 0, "km")
 
-@st.experimental_singleton
-def get_connection() -> sqlite3.Connection:
-    conn = sqlite3.connect(
-        database="file:countries.db?immutable=1",
-        timeout=5,
-        detect_types=0,
-        isolation_level="DEFERRED",
-        check_same_thread=False,
-        factory=sqlite3.Connection,
-        cached_statements=128,
-        uri=True,
-    )
-    conn.row_factory = sqlite3.Row
-    # conn.enable_load_extension(True)
-    # conn.load_extension("mod_spatialite")
-    return conn
-
 
 def get_random_location() -> dict:
     with open('countries.csv', newline='') as csvfile:
         reader = csv.DictReader(csvfile)
         chosen_row = random.choice(list(reader))
+        # chosen_row = list(reader)[123]
 
     return chosen_row
 
