@@ -91,7 +91,7 @@ def get_random_location() -> dict:
     with open('countries.csv', newline='') as csvfile:
         reader = csv.DictReader(csvfile)
         chosen_row = random.choice(list(reader))
-        # chosen_row = list(reader)[123]
+        # chosen_row = list(reader)[18]
 
     return chosen_row
 
@@ -104,7 +104,7 @@ def get_all_locations() -> list:
         reader = csv.DictReader(csvfile)
         for row in reader:
             result.append(row)
-
+    result.sort(key=lambda country: country["alpha_name"])
     return result
 
 
@@ -114,7 +114,7 @@ def get_distances(target: dict) -> list:
     for loc in locations:
         loc['distance'] = haversine(float(target["latitude"]), float(target["longitude"]), float(loc["latitude"]), float(loc["longitude"]))
         loc['direction'] = get_flat_earth_bearing(float(loc["latitude"]), float(loc["longitude"]), float(target["latitude"]), float(target["longitude"]))
-
+        loc['alpha_direction'] = 0 if target["alpha_name"] < loc["alpha_name"] else 180
     return locations
 
 
@@ -132,6 +132,25 @@ def update_params():
     query_params = {LOCALE: st.session_state.get(LOCALE)}
     st.experimental_set_query_params(**query_params)
 
+def display_guesses(random_location, guesses):
+    for display_guess in guesses:
+        display_guess_name = display_guess['name']
+        distance = display_guess["distance"]
+        distance_percentage = (1 - (distance / MAX_DISTANCE)) * 100
+        direction = display_guess["direction"]
+        alph_direction = display_guess["alpha_direction"]
+
+        arrow_image = get_rotated_arrow(direction)
+        alph_arrow_image = get_rotated_arrow(alph_direction)
+        if int(distance_percentage) == 100:
+            prox_icon = "🥇"
+        elif int(distance_percentage) > 50:
+            prox_icon = "🥈"
+        else:
+            prox_icon = "🥉"
+        st.info(
+            f"🌏 **{display_guess_name}** | 📏 **{distance:.0f}** km away | ![Direction {direction}](data:image/png;base64,{arrow_image}) | {prox_icon} **{distance_percentage:.2f}%** | Alphabet Direction: ![AlphDirection {alph_direction}](data:image/png;base64,{alph_arrow_image})"
+        )
 
 RANDOM_LOCATION = "random_location"
 ALL_LOCATIONS = "all_locations"
@@ -182,6 +201,7 @@ def main():
         st.balloons()
         st.success("You Guessed Correctly! 🥳")
         st.header(random_location["name"])
+        display_guesses(random_location, guesses)
         # target_gdf = all_locations.loc[guesses, "geom"]
         m = folium.Map(
             location=[target_lat, target_lon],
@@ -218,28 +238,7 @@ A geography guessing game with the following rules:
 """
         )
 
-    for display_guess in guesses:
-        # display_guess_country = all_locations.loc[display_guess]
-        display_guess_name = display_guess['name']
-        distance = display_guess["distance"]
-        distance_percentage = (1 - (distance / MAX_DISTANCE)) * 100
-        direction = display_guess["direction"]
-
-        alph_direction = 180
-        if display_guess_name > random_location['name']:
-            alph_direction = 0
-
-        arrow_image = get_rotated_arrow(direction)
-        alph_arrow_image = get_rotated_arrow(alph_direction)
-        if int(distance_percentage) == 100:
-            prox_icon = "🥇"
-        elif int(distance_percentage) > 50:
-            prox_icon = "🥈"
-        else:
-            prox_icon = "🥉"
-        st.info(
-            f"🌏 **{display_guess_name}** | 📏 **{distance:.0f}** km away | ![Direction {direction}](data:image/png;base64,{arrow_image}) | {prox_icon} **{distance_percentage:.2f}%** | Alphabet Direction: ![AlphDirection {alph_direction}](data:image/png;base64,{alph_arrow_image})"
-        )
+    display_guesses(random_location, guesses)
 
     if len(guesses) == 6:
         st.error("You Guessed Incorrectly 6 Times 😔")
